@@ -1,3 +1,40 @@
+<?php
+session_start();
+include_once("includes/config.php");
+include_once("auth_functions.php");
+
+// Initilisation des messages d’erreurs
+$login_message = "";
+$error_message = "";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $get_coordonnees = $_POST; // récupération de l’email et du mot de passe
+
+    if (!areAvalaible($get_coordonnees['email'] ?? '', $get_coordonnees['password'] ?? '')) {
+        $error_message = "Vous devez remplir tous les champs";
+    } elseif (!filter_var($get_coordonnees['email'], FILTER_VALIDATE_EMAIL)) {
+        $error_message = "L’adresse email n’est pas valide";
+    } else {
+        $email = $get_coordonnees['email'];
+        $password = $get_coordonnees['password'];
+
+        $stmt = $pdo->prepare("SELECT id, first_name, email, pass_word, role FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user && password_verify($password, $user['pass_word'])) {
+            logedInUser($user);
+            $login_message = 'Content de vous revoir ' . $user['first_name'] . ' !';
+            // Redirection vers la page d'accueil ou autre après connexion
+            header("Location: index.php");
+            exit();
+        } else {
+            $error_message = "Identifiants incorrects";
+        }
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -23,18 +60,29 @@
                 <p>Veuillez entrer vos identifiants</p>
             </div>
 
-            <form>
+            <!-- Affichage des messages -->
+            <?php if ($error_message): ?>
+                <div class="alert alert-danger"><?php echo $error_message; ?></div>
+            <?php endif; ?>
+            <?php if ($login_message): ?>
+                <div class="alert alert-success"><?php echo $login_message; ?></div>
+            <?php endif; ?>
+
+            <form method="POST" action="">
                 <div class="form-group">
-                    <input type="email" placeholder="Email : example@gmail.com" required>
+                    <input type="email" name="email" placeholder="Email : example@gmail.com" required>
                 </div>
                 <div class="form-group">
-                    <input type="password" placeholder="Mot de passe" required>
+                    <input type="password" name="password" placeholder="Mot de passe" required>
                 </div>
                 <div class="form-group text-center">
                     <a href="#" class="form-recovery">Mot de passe oublié</a>
                 </div>
                 <div class="form-group">
                     <button type="submit">Se connecter</button>
+                </div>
+                <div class="text-center">
+                    <p>Pas encore inscrit? <a href="register.php">Créez un compte</a></p>
                 </div>
             </form>
         </div>
