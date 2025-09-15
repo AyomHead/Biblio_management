@@ -1,3 +1,30 @@
+<?php
+// Inclure le fichier de configuration de la base de données
+require_once 'config.php';
+
+// Récupérer les livres depuis la base de données
+try {
+    $query = "SELECT * FROM books ORDER BY created_at DESC LIMIT 4";
+    $stmt = $pdo->query($query);
+    $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $books = [];
+    $error = "Erreur lors de la récupération des livres: " . $e->getMessage();
+}
+
+// Récupérer les livres les plus empruntés
+try {
+
+    // Créer la colonne borrow_count si elle n'existe pas
+    $popular_query = "SELECT * FROM books ORDER BY borrow_count DESC LIMIT 4";
+    $popular_stmt = $pdo->query($popular_query);
+    $popular_books = $popular_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $popular_books = [];
+    $popular_error = "Erreur lors de la récupération des livres populaires: " . $e->getMessage();
+}
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -42,140 +69,118 @@
     </section>
 
     <!-- Nouveautés Section -->
-    <section class="py-5" id="new-books">
-        <div class="container">
-            <div class="section-title">
-                <h2><i class="fas fa-star"></i> Nouveautés</h2>
-                <p>Découvrez les derniers ouvrages ajoutés à notre collection</p>
-            </div>
+        <section class="py-5" id="new-books">
+            <div class="container">
+                <div class="section-title">
+                    <h2><i class="fas fa-star"></i> Nouveautés</h2>
+                    <p>Découvrez les derniers ouvrages ajoutés à notre collection</p>
+                </div>
 
-            <div class="row g-4">
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80" alt="L'Enfant Noir">
+                <?php if (!empty($error)): ?>
+                    <div class="alert alert-danger" role="alert">
+                        <?php echo $error; ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="row g-4">
+                    <?php if (!empty($books)): ?>
+                        <?php 
+                        $delay = 0;
+                        foreach ($books as $book): 
+                        ?>
+                            <div class="col-md-6 col-lg-3">
+                                <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: <?php echo $delay; ?>s;">
+                                    <div class="book-image">
+                                        <img src="<?php echo !empty($book['cover_image']) ? htmlspecialchars($book['cover_image']) : 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80'; ?>" alt="<?php echo htmlspecialchars($book['title']); ?>">
+                                    </div>
+                                    <div class="book-info">
+                                        <h3 class="book-title"><?php echo htmlspecialchars($book['title']); ?></h3>
+                                        <p class="book-author"><?php echo htmlspecialchars($book['author']); ?></p>
+                                        
+
+                                        <?php if (!empty($book['category'])): ?>
+                                            <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                        <?php endif; ?>
+                                        
+                                        <span class="book-status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">
+                                            <?php echo $book['status'] == 'DISPONIBLE' ? 'Disponible' : 'Indisponible'; ?>
+                                        </span>
+                                        <a href="book_details.php?id=<?php echo $book['id']; ?>" class="view-btn">Voir détails</a>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php 
+                        $delay += 0.1;
+                        endforeach; 
+                        ?>
+                    <?php else: ?>
+                        <div class="col-12">
+                            <div class="alert alert-info text-center">
+                                <i class="fas fa-book-open fa-3x mb-3"></i>
+                                <h4>Aucun livre trouvé</h4>
+                                <p>Aucun livre ne correspond à vos critères de recherche.</p>
+                            </div>
                         </div>
-                        <div class="book-info">
-                            <h3 class="book-title">L'Enfant Noir</h3>
-                            <p class="book-author">Camara Laye</p>
-                            <span class="book-status status-available">Disponible</span>
-                            <a href="#" class="view-btn">Voir détails</a>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Plus empruntés Section -->
+                <section class="py-5" id="popular-books">
+                    <div class="container">
+                        <div class="section-title">
+                            <h2><i class="fas fa-fire"></i> Les plus empruntés</h2>
+                            <p>Découvrez les ouvrages les plus populaires de notre bibliothèque</p>
+                        </div>
+
+                        <?php if (!empty($popular_error)): ?>
+                            <div class="alert alert-danger" role="alert">
+                                <?php echo $popular_error; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="row g-4">
+                            <?php if (!empty($popular_books)): ?>
+                                <?php 
+                                $delay = 0;
+                                foreach ($popular_books as $book): 
+                                ?>
+                                    <div class="col-md-6 col-lg-3">
+                                        <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: <?php echo $delay; ?>s;">
+                                            <div class="book-image">
+                                                <img src="<?php echo !empty($book['cover_image']) ? htmlspecialchars($book['cover_image']) : 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80'; ?>" alt="<?php echo htmlspecialchars($book['title']); ?>">
+                                            </div>
+                                            <div class="book-info">
+                                                <h3 class="book-title"><?php echo htmlspecialchars($book['title']); ?></h3>
+                                                <p class="book-author"><?php echo htmlspecialchars($book['author']); ?></p>
+                                                
+                                                <?php if (!empty($book['category'])): ?>
+                                                    <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                                <?php endif; ?>
+                                                
+                                                <span class="book-status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">
+                                                    <?php echo $book['status'] == 'DISPONIBLE' ? 'Disponible' : 'Indisponible'; ?>
+                                                </span>
+                                                <a href="book_details.php?id=<?php echo $book['id']; ?>" class="view-btn">Voir détails</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php 
+                                $delay += 0.1;
+                                endforeach; 
+                                ?>
+                            <?php else: ?>
+                                <div class="col-12">
+                                    <div class="alert alert-info text-center">
+                                        <i class="fas fa-book-open fa-3x mb-3"></i>
+                                        <h4>Aucun livre trouvé</h4>
+                                        <p>Aucun livre ne correspond à vos critères de recherche.</p>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
-
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80" alt="Une si longue lettre">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">Une si longue lettre</h3>
-                            <p class="book-author">Mariama Bâ</p>
-                            <span class="book-status status-borrowed">Emprunté</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=698&q=80" alt="L'Aventure ambiguë">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">L'Aventure ambiguë</h3>
-                            <p class="book-author">Cheikh Hamidou Kane</p>
-                            <span class="book-status status-available">Disponible</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1515098500754-2c6d0e3f2c26?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80" alt="Sous l'Orage">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">Sous l'Orage</h3>
-                            <p class="book-author">Seydou Badian</p>
-                            <span class="book-status status-available">Disponible</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Plus empruntés Section -->
-    <section class="py-5" id="popular-books">
-        <div class="container">
-            <div class="section-title">
-                <h2><i class="fas fa-fire"></i> Les plus empruntés</h2>
-                <p>Découvrez les ouvrages les plus populaires de notre bibliothèque</p>
-            </div>
-
-            <div class="row g-4">
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=628&q=80" alt="Le Monde s'effondre">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">Le Monde s'effondre</h3>
-                            <p class="book-author">Chinua Achebe</p>
-                            <span class="book-status status-borrowed">Emprunté</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1589998059171-988d887df646?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1176&q=80" alt="Amkoullel l'enfant peul">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">Amkoullel l'enfant peul</h3>
-                            <p class="book-author">Amadou Hampâté Bâ</p>
-                            <span class="book-status status-available">Disponible</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="La Promesse des fleurs">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">La Promesse des fleurs</h3>
-                            <p class="book-author">Nuruddin Farah</p>
-                            <span class="book-status status-available">Disponible</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-3">
-                    <div class="book-card animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
-                        <div class="book-image">
-                            <img src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Les Bouts de Bois de Dieu">
-                        </div>
-                        <div class="book-info">
-                            <h3 class="book-title">Les Bouts de Bois de Dieu</h3>
-                            <p class="book-author">Ousmane Sembène</p>
-                            <span class="book-status status-borrowed">Emprunté</span>
-                            <a href="#" class="view-btn">Voir détails</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+        </section>
 
     <!-- Pied de page -->
     <?php include_once "footer.php" ?>
