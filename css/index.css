@@ -21,7 +21,7 @@
                 linear-gradient(to bottom, 
                     rgba(1, 50, 68, 0.4),  /* Dégradé plus léger pour voir l'image */
                     rgba(1, 50, 68, 0.8)), /* Transition plus progressive */
-                url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1350&q=80');
+                url('https://unsplash.com/fr/photos/livre-ouvert-QJDzYT_K8Xg');
             background-size: cover;
             background-position: center;
             padding: 120px 0;
