@@ -1,3 +1,7 @@
+<?php
+include_once("session_check.php");
+?>
+
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
         <a class="navbar-brand" href="#">
@@ -28,16 +32,40 @@
                         <i class="fas fa-envelope me-1"></i>Contactez-nous
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="login.php">
-                        <i class="fas fa-sign-in-alt me-1"></i>Connexion
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="register.php">
-                        <i class="fas fa-user-plus me-1"></i>Inscription
-                    </a>
-                </li>
+                <?php if (isConnected()): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="profile.php">
+                            <i class="fas fa-user me-1"></i>Profile
+                        </a>
+                    </li>
+
+                    <?php if (!empty($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="admin.php">
+                                <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                            </a>
+                        </li>
+                    <?php else: ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="logout.php">
+                                <i class="fas fa-sign-out-alt me-1"></i>Se déconnecter
+                            </a>
+                        </li>
+                    <?php endif; ?>
+
+                <?php else: ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="login.php">
+                            <i class="fas fa-sign-in-alt me-1"></i>Connexion
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="register.php">
+                            <i class="fas fa-user-plus me-1"></i>Inscription
+                        </a>
+                    </li>
+                <?php endif; ?>
+
             </ul>
         </div>
     </div>
