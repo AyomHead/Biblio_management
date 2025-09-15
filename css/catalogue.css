@@ -1,0 +1,181 @@
+:root {
+    --primary-color: #03d476;
+    --secondary-color: #1a4657;
+    --dark-bg: #013244;
+    --card-bg: rgba(26, 70, 87, 0.5);
+    --text-light: rgba(255, 255, 255, 0.85);
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--dark-bg);
+    color: var(--text-light);
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Filtres */
+.filter-section {
+    background-color: var(--card-bg);
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    padding: 1.5rem;
+    margin: 2rem auto;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.filter-section:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 2rem 0 rgba(0, 0, 0, 0.4);
+}
+
+.section-title {
+    position: relative;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background-color: var(--primary-color);
+    border-radius: 3px;
+}
+
+.form-label {
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.form-select {
+    background: #1a4657;
+    border: 0;
+    border-radius: 25px;
+    padding: 10px 20px;
+    color: var(--text-light);
+}
+
+.form-select:focus {
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+/* Livres */
+.book-card {
+    background-color: var(--card-bg);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+}
+
+.book-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 0.5rem 2rem 0 rgba(0, 0, 0, 0.4);
+}
+
+.book-image {
+    height: 280px;
+    object-fit: cover;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.book-card .card-body {
+    padding: 1.5rem;
+}
+
+.book-title {
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.book-author {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+.btn-details {
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 25px;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    color: #fff;
+}
+
+.btn-details:hover {
+    background-color: #fff;
+    color: var(--dark-bg);
+    transform: translateY(-2px);
+}
+
+/* Pagination */
+.pagination .page-link {
+    background-color: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.pagination .page-link:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+/* Boutons */
+.btn-primary {
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 25px;
+    padding: 10px 20px;
+    color: #fff;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #fff;
+    color: var(--dark-bg);
+}
+
+.btn-outline-secondary {
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    border-radius: 25px;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+main {
+    flex: 1;
+    padding: 20px;
+}
+
+@media (max-width: 768px) {
+    .book-image {
+        height: 220px;
+    }
+}

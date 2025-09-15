@@ -1,0 +1,227 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background: #002c3b; /* Fond plus foncé pour contraster avec le footer */
+            color: #fff;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: 
+                linear-gradient(to bottom, 
+                    rgba(1, 50, 68, 0.4),  /* Dégradé plus léger pour voir l'image */
+                    rgba(1, 50, 68, 0.8)), /* Transition plus progressive */
+                url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            padding: 120px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-section::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(to bottom, transparent, #002c3b);
+            z-index: 1;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-content h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .hero-content p {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .search-bar {
+            display: flex;
+            justify-content: center;
+            margin: 0 auto;
+            max-width: 600px;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 25px 0 0 25px;
+            outline: none;
+            background: rgba(26, 70, 87, 0.7);
+            color: #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .search-bar input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .search-bar button {
+            padding: 15px 20px;
+            border: none;
+            background: #03d476;
+            color: white;
+            border-radius: 0 25px 25px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            width: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .search-bar button:hover {
+            background: #fff;
+            color: #013244;
+        }
+
+        .btn-custom {
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary-custom {
+            background: #03d476;
+            color: white;
+            border: 2px solid #03d476;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary-custom:hover {
+            background: #fff;
+            color: #013244;
+            transform: translateY(-2px);
+        }
+
+        /* Sections générales */
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title h2 {
+            color: #03d476;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .section-title p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.2rem;
+        }
+
+        /* Book cards */
+        .book-card {
+            background: rgba(26, 70, 87, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .book-image {
+            height: 250px;
+            overflow: hidden;
+        }
+
+        .book-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .book-card:hover .book-image img {
+            transform: scale(1.05);
+        }
+
+        .book-info {
+            padding: 20px;
+        }
+
+        .book-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .book-author {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .book-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+
+        .status-available {
+            background: #03d476;
+            color: white;
+        }
+
+        .status-borrowed {
+            background: #ff4757;
+            color: white;
+        }
+
+        .view-btn {
+            display: inline-block;
+            padding: 8px 20px;
+            background: transparent;
+            color: #03d476;
+            border: 1px solid #03d476;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .view-btn:hover {
+            background: #03d476;
+            color: white;
+        }
