@@ -34,7 +34,7 @@ include_once("session_check.php");
                 </li>
                 <?php if (isConnected()): ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="profile.php">
+                        <a class="nav-link" href="profil.php">
                             <i class="fas fa-user me-1"></i>Profile
                         </a>
                     </li>

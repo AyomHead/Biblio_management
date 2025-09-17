@@ -16,9 +16,4 @@ function logedInUser($user){
     $_SESSION['first_name'] = $user['first_name'];
     $_SESSION['role'] = $user['role'];
 }
-
-// Administrateur ou pas
-function isAdmin(){
-    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
-}
 ?>

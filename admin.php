@@ -41,10 +41,6 @@
                 <i class="fas fa-bookmark"></i>
                 <span>Réservations</span>
             </a>
-            <a href="#" class="menu-item" data-tab="admin-profile">
-                <i class="fas fa-user-cog"></i>
-                <span>Mon profil</span>
-            </a>
             <a href="logout.php" class="menu-item" id="logout-btn">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Déconnexion</span>
@@ -64,10 +60,6 @@
                 </div>
                 <div class="user-avatar">MK</div>
                 <div class="user-dropdown" id="user-dropdown">
-                    <a href="#" class="dropdown-item" data-tab="admin-profile">
-                        <i class="fas fa-user"></i>
-                        <span>Mon profil</span>
-                    </a>
                     <a href="#" class="dropdown-item">
                         <i class="fas fa-cog"></i>
                         <span>Paramètres</span>
@@ -191,9 +183,6 @@
                 <div class="section-header">
                     <h2>Gestion des livres</h2>
                     <div class="section-actions">
-                        <button class="btn btn-outline btn-sm">
-                            <i class="fas fa-filter"></i> Filtrer
-                        </button>
                         <button class="btn btn-primary" id="add-book-btn">
                             <i class="fas fa-plus"></i> Ajouter un livre
                         </button>
@@ -208,6 +197,7 @@
                                 <th>Catégorie</th>
                                 <th>ISBN</th>
                                 <th>Disponibilité</th>
+                                <th>Type</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -587,64 +577,6 @@
             </div>
         </section>
 
-        <!-- Admin Profile Tab -->
-        <section id="admin-profile" class="tab-content">
-            <div class="content-section">
-                <div class="section-header">
-                    <h2>Mon profil administrateur</h2>
-                </div>
-                <div class="profile-container">
-                    <div class="profile-header">
-                        <div class="profile-avatar">MK</div>
-                        <div class="profile-info">
-                            <h2>Marie Kodjo</h2>
-                            <p>Administrateur Principal</p>
-                            <p>Dernière connexion: Aujourd'hui à 09:42</p>
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="admin-name">Nom complet</label>
-                            <input type="text" id="admin-name" class="form-control" value="Marie Kodjo">
-                        </div>
-                        <div class="form-group">
-                            <label for="admin-email">Email</label>
-                            <input type="email" id="admin-email" class="form-control" value="marie.kodjo@biblio.bj">
-                        </div>
-                        <div class="form-group">
-                            <label for="admin-phone">Téléphone</label>
-                            <input type="tel" id="admin-phone" class="form-control" value="+229 12 34 56 78">
-                        </div>
-                        <div class="form-group">
-                            <label for="admin-role">Rôle</label>
-                            <input type="text" id="admin-role" class="form-control" value="Administrateur Principal" disabled>
-                        </div>
-                    </div>
-
-                    <h3 style="margin: 1.5rem 0 1rem;">Changer le mot de passe</h3>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="current-password">Mot de passe actuel</label>
-                            <input type="password" id="current-password" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="new-password">Nouveau mot de passe</label>
-                            <input type="password" id="new-password" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="confirm-password">Confirmer le mot de passe</label>
-                            <input type="password" id="confirm-password" class="form-control">
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 1.5rem;">
-                        <button class="btn btn-primary">Enregistrer les modifications</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <!-- Add Book Modal -->
         <div class="modal" id="add-book-modal">
             <div class="modal-content">
@@ -781,27 +713,8 @@
                     return;
                 }
                 
-                const tabId = this.getAttribute('data-tab');
-                if (tabId) {
-                    // Remove active class from all menu items
-                    document.querySelectorAll('.menu-item').forEach(i => {
-                        i.classList.remove('active');
-                    });
-                    
-                    // Add active class to the profile menu item
-                    document.querySelector('[data-tab="' + tabId + '"]').classList.add('active');
-                    
-                    // Hide all tab contents
-                    document.querySelectorAll('.tab-content').forEach(tab => {
-                        tab.classList.remove('active');
-                    });
-                    
-                    // Show the selected tab content
-                    document.getElementById(tabId).classList.add('active');
-                    
-                    // Close dropdown
-                    userDropdown.classList.remove('show');
-                }
+                // Close dropdown
+                userDropdown.classList.remove('show');
             });
         });
 
@@ -951,6 +864,251 @@
                 sidebar.classList.contains('show')) {
                 sidebar.classList.remove('show');
             }
+        });
+    </script>
+
+    <script>
+        // Charger les données depuis le backend
+        function loadData() {
+            // Charger les statistiques
+            fetch('get_data.php?type=stats')
+                .then(response => response.json())
+                .then(stats => {
+                    document.querySelectorAll('.stat-card')[0].querySelector('h3').textContent = stats.total_books;
+                    document.querySelectorAll('.stat-card')[1].querySelector('h3').textContent = stats.total_users;
+                    document.querySelectorAll('.stat-card')[2].querySelector('h3').textContent = stats.current_borrowings;
+                    document.querySelectorAll('.stat-card')[3].querySelector('h3').textContent = stats.overdue_borrowings;
+                })
+                .catch(error => console.error('Erreur lors du chargement des statistiques:', error));
+            
+            // Charger les livres
+            fetch('get_data.php?type=books')
+                .then(response => response.json())
+                .then(books => {
+                    const tbody = document.querySelector('#books table tbody');
+                    tbody.innerHTML = '';
+                    
+                    books.forEach(book => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${book.title}</td>
+                            <td>${book.author}</td>
+                            <td>${book.category}</td>
+                            <td>${book.isbn || '-'}</td>
+                            <td><span class="status status-${book.status === 'DISPONIBLE' ? 'available' : 'borrowed'}">${book.status === 'DISPONIBLE' ? 'Disponible' : 'Indisponible'}</span></td>
+                            <td>Physique</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-danger btn-sm delete-book" data-id="${book.id}" data-type="physical">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    
+                    // Ajouter les écouteurs d'événements pour la suppression
+                    document.querySelectorAll('.delete-book').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const bookId = this.getAttribute('data-id');
+                            const type = this.getAttribute('data-type');
+                            
+                            if (confirm('Êtes-vous sûr de vouloir supprimer ce livre?')) {
+                                deleteBook(bookId, type);
+                            }
+                        });
+                    });
+                })
+                .catch(error => console.error('Erreur lors du chargement des livres:', error));
+            
+            // Charger les utilisateurs
+            fetch('get_data.php?type=users')
+                .then(response => response.json())
+                .then(users => {
+                    const tbody = document.querySelector('#users table tbody');
+                    tbody.innerHTML = '';
+                    
+                    if (users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun utilisateur inscrit</td></tr>';
+                    } else {
+                        users.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${user.first_name} ${user.name}</td>
+                                <td>${user.email}</td>
+                                <td>${user.phone || '-'}</td>
+                                <td>${user.role}</td>
+                                <td>${new Date(user.created_date).toLocaleDateString()}</td>
+                                <td class="action-buttons">
+                                    <button class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                })
+                .catch(error => console.error('Erreur lors du chargement des utilisateurs:', error));
+            
+            // Charger les réservations en attente
+            fetch('get_data.php?type=reservations&status=Demande en cours...')
+                .then(response => response.json())
+                .then(reservations => {
+                    const tbody = document.querySelector('#pending-reservations table tbody');
+                    tbody.innerHTML = '';
+                    
+                    if (reservations.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucune réservation en attente</td></tr>';
+                    } else {
+                        reservations.forEach(reservation => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${reservation.title}</td>
+                                <td>${reservation.first_name} ${reservation.name}</td>
+                                <td>${new Date(reservation.reservation_date).toLocaleDateString()}</td>
+                                <td><span class="status status-pending">${reservation.status}</span></td>
+                                <td class="action-buttons">
+                                    <button class="btn btn-success btn-sm confirm-reservation" data-id="${reservation.id}">
+                                        <i class="fas fa-check"></i> Confirmer
+                                    </button>
+                                    <button class="btn btn-danger btn-sm reject-reservation" data-id="${reservation.id}">
+                                        <i class="fas fa-times"></i> Rejeter
+                                    </button>
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                        
+                        // Ajouter les écouteurs d'événements pour les boutons de réservation
+                        document.querySelectorAll('.confirm-reservation').forEach(button => {
+                            button.addEventListener('click', function() {
+                                const reservationId = this.getAttribute('data-id');
+                                processReservation(reservationId, 'confirm');
+                            });
+                        });
+                        
+                        document.querySelectorAll('.reject-reservation').forEach(button => {
+                            button.addEventListener('click', function() {
+                                const reservationId = this.getAttribute('data-id');
+                                processReservation(reservationId, 'reject');
+                            });
+                        });
+                    }
+                })
+                .catch(error => console.error('Erreur lors du chargement des réservations:', error));
+        }
+
+        // Fonction pour supprimer un livre
+        function deleteBook(bookId, type) {
+            const formData = new FormData();
+            formData.append('action', 'delete_book');
+            formData.append('book_id', bookId);
+            formData.append('type', type);
+            
+            fetch('process_books.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                    loadData(); // Recharger les données
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showToast('Erreur lors de la suppression: ' + error, 'error');
+            });
+        }
+
+        // Fonction pour traiter une réservation (confirmer ou rejeter)
+        function processReservation(reservationId, action) {
+            const formData = new FormData();
+            formData.append('action', action);
+            formData.append('reservation_id', reservationId);
+            
+            fetch('process_reservations.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                    loadData(); // Recharger les données
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showToast('Erreur: ' + error, 'error');
+            });
+        }
+
+        // Modifier la fonction de soumission du formulaire d'ajout de livre
+        document.getElementById('submit-add-book').addEventListener('click', () => {
+            const formData = new FormData();
+            const isPhysical = document.querySelector('.book-type-option[data-type="physical"]').classList.contains('selected');
+            
+            formData.append('action', 'add_book');
+            formData.append('type', isPhysical ? 'physical' : 'digital');
+            formData.append('title', document.getElementById('book-title').value);
+            formData.append('author', document.getElementById('book-author').value);
+            formData.append('category', document.getElementById('book-category').value);
+            formData.append('description', document.getElementById('book-description').value);
+            
+            if (isPhysical) {
+                formData.append('isbn', document.getElementById('book-isbn').value);
+                formData.append('publisher', document.getElementById('book-publisher').value);
+                formData.append('publication_date', document.getElementById('book-publication-date').value);
+                formData.append('status', document.getElementById('book-status').value);
+                
+                const coverImage = document.getElementById('book-cover').files[0];
+                if (coverImage) {
+                    formData.append('cover_image', coverImage);
+                }
+            } else {
+                formData.append('price', document.getElementById('digital-price').value);
+                formData.append('publication_date', document.getElementById('digital-publication-date').value);
+                formData.append('is_free', document.getElementById('digital-free').checked ? '1' : '0');
+                
+                const digitalFile = document.getElementById('digital-file').files[0];
+                if (digitalFile) {
+                    formData.append('digital_file', digitalFile);
+                }
+                
+                const coverImage = document.getElementById('book-cover').files[0];
+                if (coverImage) {
+                    formData.append('cover_image', coverImage);
+                }
+            }
+            
+            fetch('process_books.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                    addBookModal.style.display = 'none';
+                    document.getElementById('add-book-form').reset();
+                    loadData(); // Recharger les données
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showToast('Erreur lors de l\'ajout du livre: ' + error, 'error');
+            });
+        });
+
+        // Charger les données au chargement de la page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            showToast('Bienvenue dans l\'administration!');
         });
     </script>
     

@@ -1,7 +1,7 @@
 <?php session_start(); ?>
 <?php
 // Inclure le fichier de configuration de la base de données
-require_once 'config.php';
+require_once 'includes/config.php';
 
 // Récupérer les paramètres de filtrage
 $category_filter = isset($_GET['category']) ? $_GET['category'] : '';
@@ -231,7 +231,7 @@ try {
                                     <span class="book-status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">
                                         <?php echo $book['status'] == 'DISPONIBLE' ? 'Disponible' : 'Indisponible'; ?>
                                     </span>
-                                    <a href="book_details.php?id=<?php echo $book['id']; ?>" class="view-btn">Voir détails</a>
+                                    <a href="detail.php?id=<?php echo $book['id']; ?>" class="view-btn">Voir détails</a>
                                 </div>
                             </div>
                         </div>
