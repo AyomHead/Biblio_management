@@ -1,13 +1,13 @@
 <?php
 function isConnected() {
-    return isset($_SESSION['id']) && isset($_SESSION['role']);
+    return isset($_SESSION['id']);
 }
 
 function isAdmin() {
-    return isConnected() && $_SESSION['role'] === 'admin';
+    return isConnected() && isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 }
 
 function isUser() {
-    return isConnected() && $_SESSION['role'] === 'user';
+    return isConnected() && isset($_SESSION['role']) && $_SESSION['role'] === 'user';
 }
 ?>

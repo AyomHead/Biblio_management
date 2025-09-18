@@ -3,10 +3,10 @@ session_start();
 require_once 'includes/config.php';
 require_once 'session_check.php';
 
-// Vérifier si l'utilisateur est connecté et est administrateur
-if (!isConnected() || $_SESSION['role'] !== 'admin') {
+// Vérifier si l'utilisateur est administrateur
+if (!isConnected() || !isAdmin()) {
     header('HTTP/1.1 403 Forbidden');
-    echo json_encode(['error' => 'Accès non autorisé']);
+    echo json_encode(['success' => false, 'message' => 'Accès non autorisé']);
     exit();
 }
 
@@ -23,11 +23,8 @@ try {
                         if ($input['book_type'] === 'physical') {
                             $stmt = $pdo->prepare("UPDATE books SET status = 'DELETED' WHERE id = ?");
                             $stmt->execute([$input['book_id']]);
-                        } else {
-                            $stmt = $pdo->prepare("UPDATE digital_books SET status = 'DELETED' WHERE id = ?");
-                            $stmt->execute([$input['book_id']]);
                         }
-                        echo json_encode(['success' => true]);
+                        echo json_encode(['success' => true, 'message' => 'Livre supprimé avec succès']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'ID ou type de livre manquant']);
                     }
@@ -35,9 +32,9 @@ try {
                     
                 case 'delete_user':
                     if (isset($input['user_id'])) {
-                        $stmt = $pdo->prepare("UPDATE users SET status = 'DELETED' WHERE id = ?");
+                        $stmt = $pdo->prepare("UPDATE users SET status = 'deleted' WHERE id = ?");
                         $stmt->execute([$input['user_id']]);
-                        echo json_encode(['success' => true]);
+                        echo json_encode(['success' => true, 'message' => 'Utilisateur supprimé avec succès']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'ID utilisateur manquant']);
                     }
@@ -45,24 +42,28 @@ try {
                     
                 case 'return_book':
                     if (isset($input['borrowing_id'])) {
-                        $stmt = $pdo->prepare("
-                            UPDATE borrowings 
-                            SET return_date = NOW() 
-                            WHERE id = ?
-                        ");
-                        $stmt->execute([$input['borrowing_id']]);
+                        $pdo->beginTransaction();
                         
-                        // Mettre à jour le statut du livre
-                        $stmt = $pdo->prepare("
-                            UPDATE books 
-                            SET status = 'DISPONIBLE' 
-                            WHERE id = (
-                                SELECT book_id FROM borrowings WHERE id = ?
-                            )
-                        ");
+                        // Récupérer l'ID du livre
+                        $stmt = $pdo->prepare("SELECT book_id FROM borrowings WHERE id = ?");
                         $stmt->execute([$input['borrowing_id']]);
+                        $borrowing = $stmt->fetch(PDO::FETCH_ASSOC);
                         
-                        echo json_encode(['success' => true]);
+                        if ($borrowing) {
+                            // Mettre à jour la date de retour
+                            $stmt = $pdo->prepare("UPDATE borrowings SET return_date = NOW() WHERE id = ?");
+                            $stmt->execute([$input['borrowing_id']]);
+                            
+                            // Mettre à jour le statut du livre
+                            $stmt = $pdo->prepare("UPDATE books SET status = 'DISPONIBLE' WHERE id = ?");
+                            $stmt->execute([$borrowing['book_id']]);
+                            
+                            $pdo->commit();
+                            echo json_encode(['success' => true, 'message' => 'Livre retourné avec succès']);
+                        } else {
+                            $pdo->rollBack();
+                            echo json_encode(['success' => false, 'message' => 'Emprunt non trouvé']);
+                        }
                     } else {
                         echo json_encode(['success' => false, 'message' => 'ID emprunt manquant']);
                     }
@@ -70,55 +71,86 @@ try {
                     
                 case 'approve_reservation':
                     if (isset($input['reservation_id'])) {
+                        $pdo->beginTransaction();
+                        
                         $stmt = $pdo->prepare("
                             UPDATE reservations 
-                            SET status = 'APPROVED', 
-                                approval_date = NOW(),
-                                expiration_date = DATE_ADD(NOW(), INTERVAL 7 DAY)
+                            SET status = 'Approuvée', 
+                                approved_at = NOW(),
+                                pickup_deadline = DATE_ADD(NOW(), INTERVAL 7 DAY)
                             WHERE id = ?
                         ");
                         $stmt->execute([$input['reservation_id']]);
                         
-                        echo json_encode(['success' => true]);
+                        // Récupérer l'ID du livre pour mettre à jour son statut
+                        $stmt = $pdo->prepare("SELECT book_id FROM reservations WHERE id = ?");
+                        $stmt->execute([$input['reservation_id']]);
+                        $reservation = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($reservation) {
+                            $stmt = $pdo->prepare("UPDATE books SET status = 'INDISPONIBLE' WHERE id = ?");
+                            $stmt->execute([$reservation['book_id']]);
+                        }
+                        
+                        $pdo->commit();
+                        echo json_encode(['success' => true, 'message' => 'Réservation approuvée avec succès']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'ID réservation manquant']);
                     }
                     break;
                     
                 case 'reject_reservation':
-                    if (isset($input['reservation_id']) && isset($input['reason'])) {
-                        $stmt = $pdo->prepare("
-                            UPDATE reservations 
-                            SET status = 'CANCELLED', 
-                                cancellation_date = NOW(),
-                                cancellation_reason = ?
-                            WHERE id = ?
-                        ");
-                        $stmt->execute([$input['reason'], $input['reservation_id']]);
+                    if (isset($input['reservation_id'])) {
+                        $pdo->beginTransaction();
                         
-                        // Remettre le livre en disponible
-                        $stmt = $pdo->prepare("
-                            UPDATE books 
-                            SET status = 'DISPONIBLE' 
-                            WHERE id = (
-                                SELECT book_id FROM reservations WHERE id = ?
-                            )
-                        ");
+                        // Récupérer l'ID du livre
+                        $stmt = $pdo->prepare("SELECT book_id FROM reservations WHERE id = ?");
                         $stmt->execute([$input['reservation_id']]);
+                        $reservation = $stmt->fetch(PDO::FETCH_ASSOC);
                         
-                        echo json_encode(['success' => true]);
+                        if ($reservation) {
+                            // Mettre à jour la réservation
+                            $stmt = $pdo->prepare("
+                                UPDATE reservations 
+                                SET status = 'Rejetée'
+                                WHERE id = ?
+                            ");
+                            $stmt->execute([$input['reservation_id']]);
+                            
+                            // Vérifier s'il y a d'autres réservations pour ce livre
+                            $stmt = $pdo->prepare("
+                                SELECT COUNT(*) as count FROM reservations 
+                                WHERE book_id = ? AND status IN ('Demande en cours...', 'Approuvée')
+                            ");
+                            $stmt->execute([$reservation['book_id']]);
+                            $other_reservations = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            // Remettre le livre en disponible s'il n'y a plus de réservations
+                            if ($other_reservations['count'] == 0) {
+                                $stmt = $pdo->prepare("UPDATE books SET status = 'DISPONIBLE' WHERE id = ?");
+                                $stmt->execute([$reservation['book_id']]);
+                            }
+                            
+                            $pdo->commit();
+                            echo json_encode(['success' => true, 'message' => 'Réservation rejetée avec succès']);
+                        } else {
+                            $pdo->rollBack();
+                            echo json_encode(['success' => false, 'message' => 'Réservation non trouvée']);
+                        }
                     } else {
-                        echo json_encode(['success' => false, 'message' => 'ID réservation ou raison manquant']);
+                        echo json_encode(['success' => false, 'message' => 'ID réservation manquant']);
                     }
                     break;
                     
                 case 'convert_reservation':
                     if (isset($input['reservation_id'])) {
+                        $pdo->beginTransaction();
+                        
                         // Récupérer les informations de la réservation
                         $stmt = $pdo->prepare("
                             SELECT r.user_id, r.book_id 
                             FROM reservations r 
-                            WHERE r.id = ?
+                            WHERE r.id = ? AND r.status = 'Approuvée'
                         ");
                         $stmt->execute([$input['reservation_id']]);
                         $reservation = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -134,64 +166,20 @@ try {
                             // Marquer la réservation comme complétée
                             $stmt = $pdo->prepare("
                                 UPDATE reservations 
-                                SET status = 'COMPLETED',
-                                    completion_date = NOW()
+                                SET status = 'Emprunté'
                                 WHERE id = ?
                             ");
                             $stmt->execute([$input['reservation_id']]);
                             
-                            echo json_encode(['success' => true]);
+                            $pdo->commit();
+                            echo json_encode(['success' => true, 'message' => 'Réservation convertie en emprunt avec succès']);
                         } else {
-                            echo json_encode(['success' => false, 'message' => 'Réservation non trouvée']);
+                            $pdo->rollBack();
+                            echo json_encode(['success' => false, 'message' => 'Réservation non trouvée ou non approuvée']);
                         }
                     } else {
                         echo json_encode(['success' => false, 'message' => 'ID réservation manquant']);
                     }
-                    break;
-                    
-                case 'delete_reservation':
-                    if (isset($input['reservation_id'])) {
-                        $stmt = $pdo->prepare("DELETE FROM reservations WHERE id = ?");
-                        $stmt->execute([$input['reservation_id']]);
-                        echo json_encode(['success' => true]);
-                    } else {
-                        echo json_encode(['success' => false, 'message' => 'ID réservation manquant']);
-                    }
-                    break;
-                    
-                case 'add_book':
-                    // Gérer l'ajout de livre via formulaire
-                    if ($_POST['book_type'] === 'physical') {
-                        $stmt = $pdo->prepare("
-                            INSERT INTO books (title, author, category, isbn, publisher, publication_date, description, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ");
-                        $stmt->execute([
-                            $_POST['title'],
-                            $_POST['author'],
-                            $_POST['category'],
-                            $_POST['isbn'] ?? null,
-                            $_POST['publisher'] ?? null,
-                            $_POST['publication_date'] ?? null,
-                            $_POST['description'],
-                            $_POST['status'] ?? 'DISPONIBLE'
-                        ]);
-                    } else {
-                        $stmt = $pdo->prepare("
-                            INSERT INTO digital_books (title, author, category, publication_date, description, price, is_free)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        ");
-                        $stmt->execute([
-                            $_POST['title'],
-                            $_POST['author'],
-                            $_POST['category'],
-                            $_POST['publication_date'] ?? null,
-                            $_POST['description'],
-                            $_POST['price'] ?? 0,
-                            isset($_POST['is_free']) ? 1 : 0
-                        ]);
-                    }
-                    echo json_encode(['success' => true]);
                     break;
                     
                 default:
@@ -204,6 +192,9 @@ try {
         echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
     }
 } catch (PDOException $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);
 }
 ?>

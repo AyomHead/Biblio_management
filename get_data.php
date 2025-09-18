@@ -1,24 +1,31 @@
 <?php
-// get_data.php
 require_once 'includes/config.php';
+require_once 'session_check.php';
 
 header('Content-Type: application/json');
 
+// Vérifier l'accès administrateur pour certaines données
+$restrictedTypes = ['users', 'borrowings', 'reservations', 'stats'];
 $dataType = $_GET['type'] ?? '';
+
+if (in_array($dataType, $restrictedTypes) && (!isConnected() || !isAdmin())) {
+    echo json_encode(['error' => 'Accès non autorisé']);
+    exit();
+}
 
 try {
     if ($dataType === 'books') {
-        $stmt = $pdo->query("SELECT * FROM books ORDER BY title");
+        $stmt = $pdo->query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title");
         $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($books);
         
     } elseif ($dataType === 'digital_books') {
-        $stmt = $pdo->query("SELECT * FROM digital_documents ORDER BY title");
+        $stmt = $pdo->query("SELECT * FROM digital_documents WHERE status != 'DELETED' ORDER BY title");
         $digitalBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($digitalBooks);
         
     } elseif ($dataType === 'users') {
-        $stmt = $pdo->query("SELECT id, name, first_name, email, phone, role, created_date FROM users ORDER BY created_date DESC");
+        $stmt = $pdo->query("SELECT id, name, first_name, email, phone, role, created_date FROM users WHERE status != 'DELETED' ORDER BY created_date DESC");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($users);
         
@@ -83,15 +90,14 @@ try {
         echo json_encode($reservations);
         
     } elseif ($dataType === 'stats') {
-        // Statistiques pour le tableau de bord
         $stats = [];
         
         // Nombre total de livres
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM books");
+        $stmt = $pdo->query("SELECT COUNT(*) as count FROM books WHERE status != 'DELETED'");
         $stats['total_books'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
         
         // Nombre total d'utilisateurs
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
+        $stmt = $pdo->query("SELECT COUNT(*) as count FROM users WHERE status != 'DELETED'");
         $stats['total_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
         
         // Nombre d'emprunts en cours
@@ -103,6 +109,9 @@ try {
         $stats['overdue_borrowings'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
         
         echo json_encode($stats);
+        
+    } else {
+        echo json_encode(['error' => 'Type de données non supporté']);
     }
 } catch (PDOException $e) {
     echo json_encode(['error' => 'Erreur lors de la récupération des données: ' . $e->getMessage()]);

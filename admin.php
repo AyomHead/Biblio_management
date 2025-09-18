@@ -1,3 +1,161 @@
+<?php
+session_start();
+require_once 'includes/config.php';
+require_once 'session_check.php';
+
+// Vérifier si l'utilisateur est connecté et est administrateur
+if (!isConnected() || !isAdmin()) {
+    header("Location: login.php");
+    exit();
+}
+
+// Récupérer les statistiques
+try {
+    // Nombre total de livres
+    $stmt = $pdo->query("SELECT COUNT(*) as total_books FROM books WHERE status != 'DELETED'");
+    $total_books = $stmt->fetch(PDO::FETCH_ASSOC)['total_books'];
+    
+    // Nombre total d'utilisateurs
+    $stmt = $pdo->query("SELECT COUNT(*) as total_users FROM users WHERE status != 'DELETED'");
+    $total_users = $stmt->fetch(PDO::FETCH_ASSOC)['total_users'];
+    
+    // Emprunts en cours
+    $stmt = $pdo->query("SELECT COUNT(*) as current_borrowings FROM borrowings WHERE return_date IS NULL");
+    $current_borrowings = $stmt->fetch(PDO::FETCH_ASSOC)['current_borrowings'];
+    
+    // Retards
+    $stmt = $pdo->query("SELECT COUNT(*) as overdue_borrowings FROM borrowings WHERE return_date IS NULL AND due_date < NOW()");
+    $overdue_borrowings = $stmt->fetch(PDO::FETCH_ASSOC)['overdue_borrowings'];
+    
+    // Récupérer les emprunts récents
+    $stmt = $pdo->query("
+        SELECT b.*, u.first_name, u.name, bk.title 
+        FROM borrowings b 
+        JOIN users u ON b.user_id = u.id 
+        JOIN books bk ON b.book_id = bk.id 
+        ORDER BY b.borrow_date DESC 
+        LIMIT 10
+    ");
+    $recent_borrowings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Récupérer tous les livres
+    $stmt = $pdo->query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title");
+    $all_books = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Récupérer tous les utilisateurs
+    $stmt = $pdo->query("SELECT id, name, first_name, email, phone, role, created_date FROM users WHERE status != 'DELETED' ORDER BY created_date DESC");
+    $all_users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Récupérer les emprunts par statut
+    $stmt = $pdo->query("
+        SELECT b.*, u.first_name, u.name, bk.title 
+        FROM borrowings b 
+        JOIN users u ON b.user_id = u.id 
+        JOIN books bk ON b.book_id = bk.id 
+        WHERE b.return_date IS NULL
+    ");
+    $current_borrows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stmt = $pdo->query("
+        SELECT b.*, u.first_name, u.name, bk.title 
+        FROM borrowings b 
+        JOIN users u ON b.user_id = u.id 
+        JOIN books bk ON b.book_id = bk.id 
+        WHERE b.return_date IS NOT NULL
+    ");
+    $history_borrows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stmt = $pdo->query("
+        SELECT b.*, u.first_name, u.name, bk.title 
+        FROM borrowings b 
+        JOIN users u ON b.user_id = u.id 
+        JOIN books bk ON b.book_id = bk.id 
+        WHERE b.return_date IS NULL AND b.due_date < NOW()
+    ");
+    $overdue_borrows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Récupérer les réservations par statut
+    $reservation_statuses = ['Demande en cours...', 'Approuvée', 'Emprunté', 'Rejetée'];
+    $reservations_by_status = [];
+    
+    foreach ($reservation_statuses as $status) {
+        $stmt = $pdo->prepare("
+            SELECT r.*, u.first_name, u.name, b.title 
+            FROM reservations r 
+            JOIN users u ON r.user_id = u.id 
+            JOIN books b ON r.book_id = b.id 
+            WHERE r.status = ? 
+            ORDER BY r.reservation_date DESC
+        ");
+        $stmt->execute([$status]);
+        $reservations_by_status[$status] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+} catch (PDOException $e) {
+    $error = "Erreur lors de la récupération des données: " . $e->getMessage();
+}
+// Récupérer les données pour les graphiques
+try {
+    // Évolution des inscriptions utilisateurs (30 derniers jours)
+    $stmt = $pdo->query("
+        SELECT DATE(created_date) as date, COUNT(*) as count 
+        FROM users 
+        WHERE created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) 
+        AND status != 'deleted'
+        GROUP BY DATE(created_date) 
+        ORDER BY date
+    ");
+    $user_registrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Évolution des emprunts (30 derniers jours)
+    $stmt = $pdo->query("
+        SELECT DATE(borrow_date) as date, COUNT(*) as count 
+        FROM borrowings 
+        WHERE borrow_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) 
+        GROUP BY DATE(borrow_date) 
+        ORDER BY date
+    ");
+    $borrow_evolution = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Livres par catégorie
+    $stmt = $pdo->query("
+        SELECT category, COUNT(*) as count 
+        FROM books 
+        WHERE status != 'DELETED' 
+        AND category IS NOT NULL
+        GROUP BY category 
+        ORDER BY count DESC
+        LIMIT 10
+    ");
+    $books_by_category = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Statistiques mensuelles (6 derniers mois)
+    $stmt = $pdo->query("
+        SELECT 
+            YEAR(created_date) as year,
+            MONTH(created_date) as month,
+            COUNT(*) as new_users,
+            (SELECT COUNT(*) FROM borrowings WHERE YEAR(borrow_date) = year AND MONTH(borrow_date) = month) as borrowings,
+            (SELECT COUNT(*) FROM reservations WHERE YEAR(reservation_date) = year AND MONTH(reservation_date) = month) as reservations
+        FROM users 
+        WHERE created_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        AND status != 'deleted'
+        GROUP BY YEAR(created_date), MONTH(created_date)
+        ORDER BY year, month
+    ");
+    $monthly_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+} catch (PDOException $e) {
+    $error = "Erreur lors de la récupération des données graphiques: " . $e->getMessage();
+    // Initialiser les tableaux vides pour éviter les erreurs
+    $user_registrations = [];
+    $borrow_evolution = [];
+    $books_by_category = [];
+    $monthly_stats = [];
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -7,6 +165,55 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/admin.css">
+     <!-- Chart.js -->
+     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+     <style>
+     
+    .charts-section {
+    margin: 30px 0;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.chart-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.chart-card h4 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+    font-size: 16px;
+    text-align: center;
+}
+
+.chart-card canvas {
+    width: 100% !important;
+    height: 250px !important;
+}
+
+/* Responsive pour mobile */
+@media (max-width: 768px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-card {
+        padding: 15px;
+    }
+    
+    .chart-card canvas {
+        height: 200px !important;
+    }
+}
+</style>  
 </head>
 <body>
     <!-- Mobile Menu Toggle -->
@@ -55,10 +262,10 @@
             <h1>Administration - Bibliothèque Nationale du Bénin</h1>
             <div class="user-menu">
                 <div class="user-info">
-                    <div class="user-name">Marie Kodjo</div>
+                    <div class="user-name"><?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['name']); ?></div>
                     <div class="user-role">Administrateur Principal</div>
                 </div>
-                <div class="user-avatar">MK</div>
+                <div class="user-avatar"><?php echo strtoupper(substr($_SESSION['first_name'], 0, 1) . substr($_SESSION['name'], 0, 1)); ?></div>
                 <div class="user-dropdown" id="user-dropdown">
                     <a href="#" class="dropdown-item">
                         <i class="fas fa-cog"></i>
@@ -80,7 +287,7 @@
                         <i class="fas fa-book"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>2,548</h3>
+                        <h3><?php echo $total_books; ?></h3>
                         <p>Livres au total</p>
                     </div>
                 </div>
@@ -89,7 +296,7 @@
                         <i class="fas fa-users"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>1,237</h3>
+                        <h3><?php echo $total_users; ?></h3>
                         <p>Utilisateurs inscrits</p>
                     </div>
                 </div>
@@ -98,7 +305,7 @@
                         <i class="fas fa-exchange-alt"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>384</h3>
+                        <h3><?php echo $current_borrowings; ?></h3>
                         <p>Emprunts en cours</p>
                     </div>
                 </div>
@@ -107,12 +314,45 @@
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>27</h3>
+                        <h3><?php echo $overdue_borrowings; ?></h3>
                         <p>Retards</p>
                     </div>
                 </div>
             </div>
-
+            
+           <!-- Section Graphiques -->
+            
+<div class="charts-section">
+    <div class="section-header">
+        <h2>Statistiques et Évolution</h2>
+    </div>
+    
+    <div class="charts-grid">
+        <!-- Graphique 1: Évolution des inscriptions -->
+        <div class="chart-card">
+            <h4>Évolution des inscriptions (30 jours)</h4>
+            <canvas id="userRegistrationsChart"></canvas>
+        </div>
+        
+        <!-- Graphique 2: Évolution des emprunts -->
+        <div class="chart-card">
+            <h4>Évolution des emprunts (30 jours)</h4>
+            <canvas id="borrowEvolutionChart"></canvas>
+        </div>
+        
+        <!-- Graphique 3: Livres par catégorie -->
+        <div class="chart-card">
+            <h4>Répartition par catégorie</h4>
+            <canvas id="booksByCategoryChart"></canvas>
+        </div>
+        
+        <!-- Graphique 4: Statistiques mensuelles -->
+        <div class="chart-card">
+            <h4>Statistiques mensuelles</h4>
+            <canvas id="monthlyStatsChart"></canvas>
+        </div>
+    </div>
+</div>
             <div class="content-section">
                 <div class="section-header">
                     <h2>Emprunts récents</h2>
@@ -135,42 +375,32 @@
                             </tr>
                         </thead>
                         <tbody>
+                            <?php foreach ($recent_borrowings as $borrowing): ?>
                             <tr>
-                                <td>L'Enfant Noir</td>
-                                <td>Koffi Mensah</td>
-                                <td>12/08/2023</td>
-                                <td>26/08/2023</td>
-                                <td><span class="status status-borrowed">Emprunté</span></td>
+                                <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
+                                <td><?php echo htmlspecialchars($borrowing['first_name'] . ' ' . $borrowing['name']); ?></td>
+                                <td><?php echo date('d/m/Y', strtotime($borrowing['borrow_date'])); ?></td>
+                                <td><?php echo $borrowing['return_date'] ? date('d/m/Y', strtotime($borrowing['return_date'])) : date('d/m/Y', strtotime($borrowing['due_date'])); ?></td>
+                                <td>
+                                    <span class="status status-<?php 
+                                        if ($borrowing['return_date']) echo 'available';
+                                        elseif (strtotime($borrowing['due_date']) < time()) echo 'overdue';
+                                        else echo 'borrowed';
+                                    ?>">
+                                        <?php 
+                                        if ($borrowing['return_date']) echo 'Retourné';
+                                        elseif (strtotime($borrowing['due_date']) < time()) echo 'En retard';
+                                        else echo 'Emprunté';
+                                        ?>
+                                    </span>
+                                </td>
                                 <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
+                                    <button class="btn btn-danger btn-sm delete-borrowing" data-id="<?php echo $borrowing['id']; ?>">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
                             </tr>
-                            <tr>
-                                <td>Une si longue lettre</td>
-                                <td>Aïcha Diallo</td>
-                                <td>10/08/2023</td>
-                                <td>24/08/2023</td>
-                                <td><span class="status status-overdue">En retard</span></td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>L'Aventure ambiguë</td>
-                                <td>Jean Dupont</td>
-                                <td>15/08/2023</td>
-                                <td>29/08/2023</td>
-                                <td><span class="status status-borrowed">Emprunté</span></td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -197,35 +427,28 @@
                                 <th>Catégorie</th>
                                 <th>ISBN</th>
                                 <th>Disponibilité</th>
-                                <th>Type</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
+                            <?php foreach ($all_books as $book): ?>
                             <tr>
-                                <td>L'Enfant Noir</td>
-                                <td>Camara Laye</td>
-                                <td>Littérature</td>
-                                <td>978-2-253-01115-9</td>
-                                <td><span class="status status-available">Disponible</span></td>
+                                <td><?php echo htmlspecialchars($book['title']); ?></td>
+                                <td><?php echo htmlspecialchars($book['author']); ?></td>
+                                <td><?php echo htmlspecialchars($book['category']); ?></td>
+                                <td><?php echo htmlspecialchars($book['isbn'] ?? '-'); ?></td>
+                                <td>
+                                    <span class="status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">
+                                        <?php echo $book['status'] == 'DISPONIBLE' ? 'Disponible' : 'Indisponible'; ?>
+                                    </span>
+                                </td>
                                 <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
+                                    <button class="btn btn-danger btn-sm delete-book" data-id="<?php echo $book['id']; ?>">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
                             </tr>
-                            <tr>
-                                <td>Une si longue lettre</td>
-                                <td>Mariama Bâ</td>
-                                <td>Roman</td>
-                                <td>978-2-7096-0549-5</td>
-                                <td><span class="status status-borrowed">Emprunté</span></td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -253,36 +476,30 @@
                                 <th>Nom complet</th>
                                 <th>Email</th>
                                 <th>Téléphone</th>
-                                <th>Statut</th>
+                                <th>Rôle</th>
                                 <th>Date d'inscription</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
+                            <?php foreach ($all_users as $user): ?>
                             <tr>
-                                <td>Koffi Mensah</td>
-                                <td>koffi.mensah@email.com</td>
-                                <td>+229 97 85 63 21</td>
-                                <td><span class="status status-available">Actif</span></td>
-                                <td>15/06/2023</td>
+                                <td><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['name']); ?></td>
+                                <td><?php echo htmlspecialchars($user['email']); ?></td>
+                                <td><?php echo htmlspecialchars($user['phone'] ?? '-'); ?></td>
+                                <td>
+                                    <span class="status status-<?php echo $user['role'] == 'admin' ? 'available' : 'borrowed'; ?>">
+                                        <?php echo $user['role'] == 'admin' ? 'Admin' : 'Utilisateur'; ?>
+                                    </span>
+                                </td>
+                                <td><?php echo date('d/m/Y', strtotime($user['created_date'])); ?></td>
                                 <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
+                                    <button class="btn btn-danger btn-sm delete-user" data-id="<?php echo $user['id']; ?>">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
                             </tr>
-                            <tr>
-                                <td>Aïcha Diallo</td>
-                                <td>aicha.diallo@email.com</td>
-                                <td>+229 65 41 78 95</td>
-                                <td><span class="status status-borrowed">Inactif</span></td>
-                                <td>22/07/2023</td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -324,30 +541,30 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($current_borrows as $borrow): ?>
                                 <tr>
-                                    <td>L'Enfant Noir</td>
-                                    <td>Koffi Mensah</td>
-                                    <td>12/08/2023</td>
-                                    <td>26/08/2023</td>
-                                    <td><span class="status status-borrowed">Emprunté</span></td>
+                                    <td><?php echo htmlspecialchars($borrow['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($borrow['first_name'] . ' ' . $borrow['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($borrow['borrow_date'])); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($borrow['due_date'])); ?></td>
+                                    <td>
+                                        <span class="status status-<?php 
+                                            if (strtotime($borrow['due_date']) < time()) echo 'overdue';
+                                            else echo 'borrowed';
+                                        ?>">
+                                            <?php 
+                                            if (strtotime($borrow['due_date']) < time()) echo 'En retard';
+                                            else echo 'Emprunté';
+                                            ?>
+                                        </span>
+                                    </td>
                                     <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
+                                        <button class="btn btn-success btn-sm return-book" data-id="<?php echo $borrow['id']; ?>">
+                                            <i class="fas fa-check"></i> Retour
                                         </button>
                                     </td>
                                 </tr>
-                                <tr>
-                                    <td>Une si longue lettre</td>
-                                    <td>Aïcha Diallo</td>
-                                    <td>10/08/2023</td>
-                                    <td>24/08/2023</td>
-                                    <td><span class="status status-overdue">En retard</span></td>
-                                    <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -364,34 +581,18 @@
                                     <th>Date d'emprunt</th>
                                     <th>Date de retour</th>
                                     <th>Statut</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($history_borrows as $borrow): ?>
                                 <tr>
-                                    <td>L'Aventure ambiguë</td>
-                                    <td>Jean Dupont</td>
-                                    <td>01/08/2023</td>
-                                    <td>15/08/2023</td>
+                                    <td><?php echo htmlspecialchars($borrow['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($borrow['first_name'] . ' ' . $borrow['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($borrow['borrow_date'])); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($borrow['return_date'])); ?></td>
                                     <td><span class="status status-available">Retourné</span></td>
-                                    <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
                                 </tr>
-                                <tr>
-                                    <td>Sous l'orage</td>
-                                    <td>Fatou Diop</td>
-                                    <td>05/07/2023</td>
-                                    <td>19/07/2023</td>
-                                    <td><span class="status status-available">Retourné</span></td>
-                                    <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -412,18 +613,22 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($overdue_borrows as $borrow): 
+                                    $days_late = floor((time() - strtotime($borrow['due_date'])) / (60 * 60 * 24));
+                                ?>
                                 <tr>
-                                    <td>Une si longue lettre</td>
-                                    <td>Aïcha Diallo</td>
-                                    <td>10/08/2023</td>
-                                    <td>24/08/2023</td>
-                                    <td><span class="status status-overdue">3 jours</span></td>
+                                    <td><?php echo htmlspecialchars($borrow['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($borrow['first_name'] . ' ' . $borrow['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($borrow['borrow_date'])); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($borrow['due_date'])); ?></td>
+                                    <td><span class="status status-overdue"><?php echo $days_late; ?> jours</span></td>
                                     <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
+                                        <button class="btn btn-success btn-sm return-book" data-id="<?php echo $borrow['id']; ?>">
+                                            <i class="fas fa-check"></i> Retour
                                         </button>
                                     </td>
                                 </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -463,17 +668,22 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($reservations_by_status['Demande en cours...'] as $reservation): ?>
                                 <tr>
-                                    <td>L'Enfant Noir</td>
-                                    <td>Koffi Mensah</td>
-                                    <td>20/08/2023</td>
-                                    <td><span class="status status-pending">En attente</span></td>
+                                    <td><?php echo htmlspecialchars($reservation['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($reservation['first_name'] . ' ' . $reservation['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($reservation['reservation_date'])); ?></td>
+                                    <td><span class="status status-pending"><?php echo $reservation['status']; ?></span></td>
                                     <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
+                                        <button class="btn btn-success btn-sm approve-reservation" data-id="<?php echo $reservation['id']; ?>">
+                                            <i class="fas fa-check"></i> Approuver
+                                        </button>
+                                        <button class="btn btn-danger btn-sm reject-reservation" data-id="<?php echo $reservation['id']; ?>">
+                                            <i class="fas fa-times"></i> Rejeter
                                         </button>
                                     </td>
                                 </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -494,18 +704,20 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($reservations_by_status['Approuvée'] as $reservation): ?>
                                 <tr>
-                                    <td>L'Aventure ambiguë</td>
-                                    <td>Jean Dupont</td>
-                                    <td>18/08/2023</td>
-                                    <td>25/08/2023</td>
-                                    <td><span class="status status-available">Active</span></td>
+                                    <td><?php echo htmlspecialchars($reservation['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($reservation['first_name'] . ' ' . $reservation['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($reservation['reservation_date'])); ?></td>
+                                    <td><?php echo $reservation['pickup_deadline'] ? date('d/m/Y', strtotime($reservation['pickup_deadline'])) : '-'; ?></td>
+                                    <td><span class="status status-available"><?php echo $reservation['status']; ?></span></td>
                                     <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
+                                        <button class="btn btn-primary btn-sm convert-reservation" data-id="<?php echo $reservation['id']; ?>">
+                                            <i class="fas fa-exchange-alt"></i> Convertir
                                         </button>
                                     </td>
                                 </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -522,22 +734,18 @@
                                     <th>Date de réservation</th>
                                     <th>Date de traitement</th>
                                     <th>Statut</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($reservations_by_status['Emprunté'] as $reservation): ?>
                                 <tr>
-                                    <td>Sous l'orage</td>
-                                    <td>Fatou Diop</td>
-                                    <td>10/08/2023</td>
-                                    <td>15/08/2023</td>
-                                    <td><span class="status status-borrowed">Convertie</span></td>
-                                    <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
+                                    <td><?php echo htmlspecialchars($reservation['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($reservation['first_name'] . ' ' . $reservation['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($reservation['reservation_date'])); ?></td>
+                                    <td><?php echo $reservation['approved_at'] ? date('d/m/Y', strtotime($reservation['approved_at'])) : '-'; ?></td>
+                                    <td><span class="status status-borrowed"><?php echo $reservation['status']; ?></span></td>
                                 </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -554,22 +762,18 @@
                                     <th>Date de réservation</th>
                                     <th>Date d'annulation</th>
                                     <th>Raison</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($reservations_by_status['Rejetée'] as $reservation): ?>
                                 <tr>
-                                    <td>Le Monde s'effondre</td>
-                                    <td>Paul Agbodjan</td>
-                                    <td>05/08/2023</td>
-                                    <td>08/08/2023</td>
-                                    <td>Non récupérée</td>
-                                    <td class="action-buttons">
-                                        <button class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
+                                    <td><?php echo htmlspecialchars($reservation['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($reservation['first_name'] . ' ' . $reservation['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($reservation['reservation_date'])); ?></td>
+                                    <td><?php echo $reservation['approved_at'] ? date('d/m/Y', strtotime($reservation['approved_at'])) : '-'; ?></td>
+                                    <td>Annulation administrateur</td>
                                 </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -585,47 +789,60 @@
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <form id="add-book-form">
+                    <form id="add-book-form" method="POST" action="process_books.php" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="add_book">
+                        <input type="hidden" name="type" value="physical">
+                        
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="book-title">Titre du livre</label>
-                                <input type="text" id="book-title" class="form-control" required>
+                                <input type="text" id="book-title" name="title" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label for="book-author">Auteur</label>
-                                <input type="text" id="book-author" class="form-control" required>
+                                <input type="text" id="book-author" name="author" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label for="book-isbn">ISBN</label>
-                                <input type="text" id="book-isbn" class="form-control" required>
+                                <input type="text" id="book-isbn" name="isbn" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label for="book-category">Catégorie</label>
-                                <select id="book-category" class="form-control" required>
+                                <select id="book-category" name="category" class="form-control" required>
                                     <option value="">Sélectionner une catégorie</option>
                                     <option value="fiction">Fiction</option>
                                     <option value="history">Histoire</option>
                                     <option value="science">Science</option>
                                     <option value="art">Art</option>
                                     <option value="philosophy">Philosophie</option>
+                                    <option value="literature">Littérature</option>
+                                    <option value="nature">Nature</option>
+                                    <option value="music">Musique</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label for="book-publisher">Éditeur</label>
-                                <input type="text" id="book-publisher" class="form-control" required>
+                                <input type="text" id="book-publisher" name="publisher" class="form-control">
                             </div>
                             <div class="form-group">
                                 <label for="book-year">Année de publication</label>
-                                <input type="number" id="book-year" class="form-control" required>
+                                <input type="number" id="book-year" name="publication_date" class="form-control" min="1900" max="<?php echo date('Y'); ?>">
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="book-description">Description</label>
-                            <textarea id="book-description" class="form-control" required></textarea>
+                            <textarea id="book-description" name="description" class="form-control" required></textarea>
                         </div>
                         <div class="form-group">
                             <label for="book-cover">Couverture du livre</label>
-                            <input type="file" id="book-cover" class="form-control">
+                            <input type="file" id="book-cover" name="cover_image" class="form-control" accept="image/*">
+                        </div>
+                        <div class="form-group">
+                            <label for="book-status">Statut</label>
+                            <select id="book-status" name="status" class="form-control" required>
+                                <option value="DISPONIBLE">Disponible</option>
+                                <option value="INDISPONIBLE">Indisponible</option>
+                            </select>
                         </div>
                     </form>
                 </div>
@@ -758,18 +975,7 @@
 
         // Form submission
         document.getElementById('submit-add-book').addEventListener('click', () => {
-            // Basic form validation
-            const title = document.getElementById('book-title').value;
-            const author = document.getElementById('book-author').value;
-            const isbn = document.getElementById('book-isbn').value;
-            
-            if (title && author && isbn) {
-                showToast('Livre ajouté avec succès!');
-                addBookModal.style.display = 'none';
-                document.getElementById('add-book-form').reset();
-            } else {
-                showToast('Veuillez remplir tous les champs obligatoires', 'error');
-            }
+            document.getElementById('add-book-form').submit();
         });
 
         // Toast notification function
@@ -797,12 +1003,6 @@
             }, 3000);
         }
 
-        // Simulated data loading
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Admin dashboard loaded');
-            showToast('Bienvenue, Marie!');
-        });
-        
         // Gestion des onglets dans les sections emprunts et réservations
         document.querySelectorAll('[data-borrowing-tab]').forEach(tab => {
             tab.addEventListener('click', function() {
@@ -865,251 +1065,393 @@
                 sidebar.classList.remove('show');
             }
         });
-    </script>
 
-    <script>
-        // Charger les données depuis le backend
-        function loadData() {
-            // Charger les statistiques
-            fetch('get_data.php?type=stats')
-                .then(response => response.json())
-                .then(stats => {
-                    document.querySelectorAll('.stat-card')[0].querySelector('h3').textContent = stats.total_books;
-                    document.querySelectorAll('.stat-card')[1].querySelector('h3').textContent = stats.total_users;
-                    document.querySelectorAll('.stat-card')[2].querySelector('h3').textContent = stats.current_borrowings;
-                    document.querySelectorAll('.stat-card')[3].querySelector('h3').textContent = stats.overdue_borrowings;
-                })
-                .catch(error => console.error('Erreur lors du chargement des statistiques:', error));
-            
-            // Charger les livres
-            fetch('get_data.php?type=books')
-                .then(response => response.json())
-                .then(books => {
-                    const tbody = document.querySelector('#books table tbody');
-                    tbody.innerHTML = '';
-                    
-                    books.forEach(book => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${book.title}</td>
-                            <td>${book.author}</td>
-                            <td>${book.category}</td>
-                            <td>${book.isbn || '-'}</td>
-                            <td><span class="status status-${book.status === 'DISPONIBLE' ? 'available' : 'borrowed'}">${book.status === 'DISPONIBLE' ? 'Disponible' : 'Indisponible'}</span></td>
-                            <td>Physique</td>
-                            <td class="action-buttons">
-                                <button class="btn btn-danger btn-sm delete-book" data-id="${book.id}" data-type="physical">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        `;
-                        tbody.appendChild(row);
+        // Gestion des actions (suppression, approbation, etc.)
+        document.querySelectorAll('.delete-book').forEach(button => {
+            button.addEventListener('click', function() {
+                const bookId = this.getAttribute('data-id');
+                if (confirm('Êtes-vous sûr de vouloir supprimer ce livre?')) {
+                    fetch('manage_data.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'delete_book',
+                            book_id: bookId,
+                            book_type: 'physical'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message);
+                            this.closest('tr').remove();
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Erreur lors de la suppression', 'error');
                     });
-                    
-                    // Ajouter les écouteurs d'événements pour la suppression
-                    document.querySelectorAll('.delete-book').forEach(button => {
-                        button.addEventListener('click', function() {
-                            const bookId = this.getAttribute('data-id');
-                            const type = this.getAttribute('data-type');
-                            
-                            if (confirm('Êtes-vous sûr de vouloir supprimer ce livre?')) {
-                                deleteBook(bookId, type);
-                            }
-                        });
+                }
+            });
+        });
+
+        document.querySelectorAll('.delete-user').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-id');
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur?')) {
+                    fetch('manage_data.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'delete_user',
+                            user_id: userId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message);
+                            this.closest('tr').remove();
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Erreur lors de la suppression', 'error');
                     });
-                })
-                .catch(error => console.error('Erreur lors du chargement des livres:', error));
-            
-            // Charger les utilisateurs
-            fetch('get_data.php?type=users')
-                .then(response => response.json())
-                .then(users => {
-                    const tbody = document.querySelector('#users table tbody');
-                    tbody.innerHTML = '';
-                    
-                    if (users.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun utilisateur inscrit</td></tr>';
-                    } else {
-                        users.forEach(user => {
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td>${user.first_name} ${user.name}</td>
-                                <td>${user.email}</td>
-                                <td>${user.phone || '-'}</td>
-                                <td>${user.role}</td>
-                                <td>${new Date(user.created_date).toLocaleDateString()}</td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            `;
-                            tbody.appendChild(row);
-                        });
-                    }
-                })
-                .catch(error => console.error('Erreur lors du chargement des utilisateurs:', error));
-            
-            // Charger les réservations en attente
-            fetch('get_data.php?type=reservations&status=Demande en cours...')
-                .then(response => response.json())
-                .then(reservations => {
-                    const tbody = document.querySelector('#pending-reservations table tbody');
-                    tbody.innerHTML = '';
-                    
-                    if (reservations.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucune réservation en attente</td></tr>';
-                    } else {
-                        reservations.forEach(reservation => {
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td>${reservation.title}</td>
-                                <td>${reservation.first_name} ${reservation.name}</td>
-                                <td>${new Date(reservation.reservation_date).toLocaleDateString()}</td>
-                                <td><span class="status status-pending">${reservation.status}</span></td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-success btn-sm confirm-reservation" data-id="${reservation.id}">
-                                        <i class="fas fa-check"></i> Confirmer
-                                    </button>
-                                    <button class="btn btn-danger btn-sm reject-reservation" data-id="${reservation.id}">
-                                        <i class="fas fa-times"></i> Rejeter
-                                    </button>
-                                </td>
-                            `;
-                            tbody.appendChild(row);
-                        });
-                        
-                        // Ajouter les écouteurs d'événements pour les boutons de réservation
-                        document.querySelectorAll('.confirm-reservation').forEach(button => {
-                            button.addEventListener('click', function() {
-                                const reservationId = this.getAttribute('data-id');
-                                processReservation(reservationId, 'confirm');
-                            });
-                        });
-                        
-                        document.querySelectorAll('.reject-reservation').forEach(button => {
-                            button.addEventListener('click', function() {
-                                const reservationId = this.getAttribute('data-id');
-                                processReservation(reservationId, 'reject');
-                            });
-                        });
-                    }
-                })
-                .catch(error => console.error('Erreur lors du chargement des réservations:', error));
-        }
-
-        // Fonction pour supprimer un livre
-        function deleteBook(bookId, type) {
-            const formData = new FormData();
-            formData.append('action', 'delete_book');
-            formData.append('book_id', bookId);
-            formData.append('type', type);
-            
-            fetch('process_books.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(data.message);
-                    loadData(); // Recharger les données
-                } else {
-                    showToast(data.message, 'error');
                 }
-            })
-            .catch(error => {
-                showToast('Erreur lors de la suppression: ' + error, 'error');
             });
-        }
+        });
 
-        // Fonction pour traiter une réservation (confirmer ou rejeter)
-        function processReservation(reservationId, action) {
-            const formData = new FormData();
-            formData.append('action', action);
-            formData.append('reservation_id', reservationId);
-            
-            fetch('process_reservations.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(data.message);
-                    loadData(); // Recharger les données
-                } else {
-                    showToast(data.message, 'error');
+        document.querySelectorAll('.return-book').forEach(button => {
+            button.addEventListener('click', function() {
+                const borrowingId = this.getAttribute('data-id');
+                if (confirm('Marquer ce livre comme retourné?')) {
+                    fetch('manage_data.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'return_book',
+                            borrowing_id: borrowingId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message);
+                            this.closest('tr').remove();
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Erreur lors du retour', 'error');
+                    });
                 }
-            })
-            .catch(error => {
-                showToast('Erreur: ' + error, 'error');
             });
-        }
+        });
 
-        // Modifier la fonction de soumission du formulaire d'ajout de livre
-        document.getElementById('submit-add-book').addEventListener('click', () => {
-            const formData = new FormData();
-            const isPhysical = document.querySelector('.book-type-option[data-type="physical"]').classList.contains('selected');
-            
-            formData.append('action', 'add_book');
-            formData.append('type', isPhysical ? 'physical' : 'digital');
-            formData.append('title', document.getElementById('book-title').value);
-            formData.append('author', document.getElementById('book-author').value);
-            formData.append('category', document.getElementById('book-category').value);
-            formData.append('description', document.getElementById('book-description').value);
-            
-            if (isPhysical) {
-                formData.append('isbn', document.getElementById('book-isbn').value);
-                formData.append('publisher', document.getElementById('book-publisher').value);
-                formData.append('publication_date', document.getElementById('book-publication-date').value);
-                formData.append('status', document.getElementById('book-status').value);
-                
-                const coverImage = document.getElementById('book-cover').files[0];
-                if (coverImage) {
-                    formData.append('cover_image', coverImage);
+        document.querySelectorAll('.approve-reservation').forEach(button => {
+            button.addEventListener('click', function() {
+                const reservationId = this.getAttribute('data-id');
+                if (confirm('Approuver cette réservation?')) {
+                    fetch('manage_data.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'approve_reservation',
+                            reservation_id: reservationId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message);
+                            this.closest('tr').remove();
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Erreur lors de l\'approbation', 'error');
+                    });
                 }
-            } else {
-                formData.append('price', document.getElementById('digital-price').value);
-                formData.append('publication_date', document.getElementById('digital-publication-date').value);
-                formData.append('is_free', document.getElementById('digital-free').checked ? '1' : '0');
-                
-                const digitalFile = document.getElementById('digital-file').files[0];
-                if (digitalFile) {
-                    formData.append('digital_file', digitalFile);
+            });
+        });
+
+        document.querySelectorAll('.reject-reservation').forEach(button => {
+            button.addEventListener('click', function() {
+                const reservationId = this.getAttribute('data-id');
+                if (confirm('Rejeter cette réservation?')) {
+                    fetch('manage_data.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'reject_reservation',
+                            reservation_id: reservationId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message);
+                            this.closest('tr').remove();
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Erreur lors du rejet', 'error');
+                    });
                 }
-                
-                const coverImage = document.getElementById('book-cover').files[0];
-                if (coverImage) {
-                    formData.append('cover_image', coverImage);
+            });
+        });
+
+        document.querySelectorAll('.convert-reservation').forEach(button => {
+            button.addEventListener('click', function() {
+                const reservationId = this.getAttribute('data-id');
+                if (confirm('Convertir cette réservation en emprunt?')) {
+                    fetch('manage_data.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'convert_reservation',
+                            reservation_id: reservationId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message);
+                            this.closest('tr').remove();
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Erreur lors de la conversion', 'error');
+                    });
                 }
-            }
-            
-            fetch('process_books.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(data.message);
-                    addBookModal.style.display = 'none';
-                    document.getElementById('add-book-form').reset();
-                    loadData(); // Recharger les données
-                } else {
-                    showToast(data.message, 'error');
-                }
-            })
-            .catch(error => {
-                showToast('Erreur lors de l\'ajout du livre: ' + error, 'error');
             });
         });
 
         // Charger les données au chargement de la page
         document.addEventListener('DOMContentLoaded', () => {
-            loadData();
             showToast('Bienvenue dans l\'administration!');
         });
+    </script>
+    <script>
+        // Fonctions utilitaires pour les graphiques
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+}
+
+function getMonthName(monthNumber) {
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return months[monthNumber - 1] || '';
+}
+
+// Initialisation des graphiques
+function initCharts() {
+    // Graphique: Évolution des inscriptions
+    const userRegistrationsCtx = document.getElementById('userRegistrationsChart');
+    if (userRegistrationsCtx) {
+        const labels = <?php echo json_encode(array_map(function($item) { 
+            return formatDate($item['date']); 
+        }, $user_registrations)); ?>;
+        
+        const data = <?php echo json_encode(array_column($user_registrations, 'count')); ?>;
+        
+        new Chart(userRegistrationsCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Inscriptions',
+                    data: data,
+                    borderColor: '#03d476',
+                    backgroundColor: 'rgba(3, 212, 118, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Graphique: Évolution des emprunts
+    const borrowEvolutionCtx = document.getElementById('borrowEvolutionChart');
+    if (borrowEvolutionCtx) {
+        const labels = <?php echo json_encode(array_map(function($item) { 
+            return formatDate($item['date']); 
+        }, $borrow_evolution)); ?>;
+        
+        const data = <?php echo json_encode(array_column($borrow_evolution, 'count')); ?>;
+        
+        new Chart(borrowEvolutionCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Emprunts',
+                    data: data,
+                    backgroundColor: '#3498db',
+                    borderColor: '#2980b9',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Graphique: Livres par catégorie
+    const booksByCategoryCtx = document.getElementById('booksByCategoryChart');
+    if (booksByCategoryCtx) {
+        const labels = <?php echo json_encode(array_column($books_by_category, 'category')); ?>;
+        const data = <?php echo json_encode(array_column($books_by_category, 'count')); ?>;
+        
+        new Chart(booksByCategoryCtx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#03d476', '#3498db', '#e74c3c', '#f39c12', 
+                        '#9b59b6', '#1abc9c', '#34495e', '#d35400',
+                        '#7f8c8d', '#27ae60'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+    }
+
+    // Graphique: Statistiques mensuelles
+    const monthlyStatsCtx = document.getElementById('monthlyStatsChart');
+    if (monthlyStatsCtx) {
+        const labels = <?php echo json_encode(array_map(function($item) { 
+            return getMonthName($item['month']) + ' ' + $item['year']; 
+        }, $monthly_stats)); ?>;
+        
+        const newUsersData = <?php echo json_encode(array_column($monthly_stats, 'new_users')); ?>;
+        const borrowingsData = <?php echo json_encode(array_column($monthly_stats, 'borrowings')); ?>;
+        const reservationsData = <?php echo json_encode(array_column($monthly_stats, 'reservations')); ?>;
+        
+        new Chart(monthlyStatsCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Nouveaux utilisateurs',
+                        data: newUsersData,
+                        backgroundColor: '#03d476'
+                    },
+                    {
+                        label: 'Emprunts',
+                        data: borrowingsData,
+                        backgroundColor: '#3498db'
+                    },
+                    {
+                        label: 'Réservations',
+                        data: reservationsData,
+                        backgroundColor: '#f39c12'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Fonction pour formater les dates en français
+function formatDate(dateString) {
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('fr-FR', { 
+        day: '2-digit', 
+        month: '2-digit' 
+    });
+}
+
+// Fonction pour obtenir le nom du mois
+function getMonthName(monthNumber) {
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return months[monthNumber - 1] || 'M' + monthNumber;
+}
+
+// Initialiser les graphiques au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    initCharts();
+    showToast('Bienvenue dans l\'administration!');
+});
     </script>
     
 </body>

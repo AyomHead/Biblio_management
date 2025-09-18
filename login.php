@@ -18,9 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = $get_coordonnees['email'];
         $password = $get_coordonnees['password'];
 
-        $stmt = $pdo->prepare("SELECT id, first_name, email, pass_word, role FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Dans login.php, la requête ne s'exécute pas !
+$stmt = $pdo->prepare("SELECT id, name, first_name, email, pass_word, role FROM users WHERE email = ?");
+$stmt->execute([$email]); // ← CETTE LIGNE MANQUE !
+$user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['pass_word'])) {
             logedInUser($user);

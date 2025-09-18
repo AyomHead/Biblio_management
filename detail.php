@@ -1,6 +1,9 @@
 <?php
 session_start();
 include_once("includes/config.php");
+// Supprimer l'inclusion de auth_functions.php qui ne contient pas isConnected()
+// et inclure plutôt session_check.php
+include_once("session_check.php");
 
 // Vérifier si un ID de livre est passé en paramètre
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -31,11 +34,12 @@ $reservation_message = "";
 $reservation_success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reserve_book'])) {
-    // Vérifier si l'utilisateur est connecté (optionnel, selon votre demande)
-    // if (!isset($_SESSION['id'])) {
-    //     $reservation_message = "Vous devez être connecté pour réserver un livre";
-    // } else {
-        $user_id = $_SESSION['id'] ?? null; // Récupérer l'ID utilisateur si disponible
+    // Vérifier si l'utilisateur est connecté en utilisant la fonction correcte
+    if (!isset($_SESSION['id'])) {
+        $reservation_message = "Vous devez être connecté pour réserver un livre";
+        $reservation_success = false;
+    } else {
+        $user_id = $_SESSION['id'];
         
         // Vérifier si l'utilisateur a déjà réservé ce livre avec un statut actif
         $stmt = $pdo->prepare("SELECT id FROM reservations WHERE user_id = ? AND book_id = ? AND status IN ('Demande en cours...', 'Approuvée', 'Emprunté')");
@@ -44,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reserve_book'])) {
         
         if ($existing_reservation) {
             $reservation_message = "Vous avez déjà une réservation active pour ce livre";
+            $reservation_success = false;
         } else {
             try {
                 // Commencer une transaction pour garantir l'intégrité des données
@@ -70,9 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reserve_book'])) {
                 // En cas d'erreur, annuler la transaction
                 $pdo->rollBack();
                 $reservation_message = "Une erreur s'est produite lors de la réservation: " . $e->getMessage();
+                $reservation_success = false;
             }
         }
-    // }
+    }
 }
 
 // Formater la date de publication si elle existe
@@ -262,19 +268,25 @@ if (!empty($book['publication_date'])) {
                     <?php endif; ?>
                     
                     <div class="d-flex justify-content-start mt-4">
-                        <form method="POST" action="">
-                            <button type="submit" name="reserve_book" class="btn btn-reserve" 
-                                <?php if ($book['status'] !== 'DISPONIBLE') echo 'disabled'; ?>>
-                                <i class="fas fa-bookmark me-2"></i>
-                                <?php 
-                                if ($book['status'] !== 'DISPONIBLE') {
-                                    echo "Indisponible";
-                                } else {
-                                    echo "Réserver ce livre";
-                                }
-                                ?>
-                            </button>
-                        </form>
+                        <?php if (isset($_SESSION['id'])): ?>
+                            <form method="POST" action="">
+                                <button type="submit" name="reserve_book" class="btn btn-reserve" 
+                                    <?php if ($book['status'] !== 'DISPONIBLE') echo 'disabled'; ?>>
+                                    <i class="fas fa-bookmark me-2"></i>
+                                    <?php 
+                                    if ($book['status'] !== 'DISPONIBLE') {
+                                        echo "Indisponible";
+                                    } else {
+                                        echo "Réserver ce livre";
+                                    }
+                                    ?>
+                                </button>
+                            </form>
+                        <?php else: ?>
+                            <a href="login.php" class="btn btn-reserve">
+                                <i class="fas fa-sign-in-alt me-2"></i>Se connecter pour réserver
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>   

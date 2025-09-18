@@ -1,6 +1,13 @@
 <?php
-// process_books.php
 require_once 'includes/config.php';
+require_once 'session_check.php';
+
+// Vérifier si l'utilisateur est administrateur
+if (!isConnected() || !isAdmin()) {
+    header('HTTP/1.1 403 Forbidden');
+    echo json_encode(['success' => false, 'message' => 'Accès non autorisé']);
+    exit();
+}
 
 header('Content-Type: application/json');
 
@@ -13,6 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $author = $_POST['author'] ?? '';
         $category = $_POST['category'] ?? '';
         $description = $_POST['description'] ?? '';
+        
+        // Validation des champs obligatoires
+        if (empty($title) || empty($author) || empty($category) || empty($description)) {
+            echo json_encode(['success' => false, 'message' => 'Tous les champs obligatoires doivent être remplis']);
+            exit();
+        }
         
         try {
             if ($type === 'physical') {
@@ -113,11 +126,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bookId = $_POST['book_id'] ?? 0;
         $type = $_POST['type'] ?? 'physical';
         
+        if (empty($bookId)) {
+            echo json_encode(['success' => false, 'message' => 'ID livre manquant']);
+            exit();
+        }
+        
         try {
             if ($type === 'physical') {
-                $stmt = $pdo->prepare("DELETE FROM books WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE books SET status = 'DELETED' WHERE id = ?");
             } else {
-                $stmt = $pdo->prepare("DELETE FROM digital_documents WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE digital_documents SET status = 'DELETED' WHERE id = ?");
             }
             
             $stmt->execute([$bookId]);
@@ -126,5 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'message' => 'Erreur lors de la suppression: ' . $e->getMessage()]);
         }
     }
+} else {
+    echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
 }
 ?>
