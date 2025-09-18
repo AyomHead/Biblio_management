@@ -3,8 +3,11 @@ session_start();
 require_once 'includes/config.php';
 require_once 'session_check.php';
 
+error_log('Session ID in admin: ' . session_id());
+
 // Vérifier si l'utilisateur est connecté et est administrateur
 if (!isConnected() || !isAdmin()) {
+    error_log('Redirecting to login - Connected: ' . (isConnected() ? 'yes' : 'no') . ', Admin: ' . (isAdmin() ? 'yes' : 'no'));
     header("Location: login.php");
     exit();
 }
@@ -321,38 +324,8 @@ try {
             </div>
             
            <!-- Section Graphiques -->
-            
-<div class="charts-section">
-    <div class="section-header">
-        <h2>Statistiques et Évolution</h2>
-    </div>
-    
-    <div class="charts-grid">
-        <!-- Graphique 1: Évolution des inscriptions -->
-        <div class="chart-card">
-            <h4>Évolution des inscriptions (30 jours)</h4>
-            <canvas id="userRegistrationsChart"></canvas>
-        </div>
-        
-        <!-- Graphique 2: Évolution des emprunts -->
-        <div class="chart-card">
-            <h4>Évolution des emprunts (30 jours)</h4>
-            <canvas id="borrowEvolutionChart"></canvas>
-        </div>
-        
-        <!-- Graphique 3: Livres par catégorie -->
-        <div class="chart-card">
-            <h4>Répartition par catégorie</h4>
-            <canvas id="booksByCategoryChart"></canvas>
-        </div>
-        
-        <!-- Graphique 4: Statistiques mensuelles -->
-        <div class="chart-card">
-            <h4>Statistiques mensuelles</h4>
-            <canvas id="monthlyStatsChart"></canvas>
-        </div>
-    </div>
-</div>
+            <?php include_once "graph_dasboard.php"; ?>
+
             <div class="content-section">
                 <div class="section-header">
                     <h2>Emprunts récents</h2>
@@ -371,7 +344,6 @@ try {
                                 <th>Date d'emprunt</th>
                                 <th>Date de retour</th>
                                 <th>Statut</th>
-                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -393,11 +365,6 @@ try {
                                         else echo 'Emprunté';
                                         ?>
                                     </span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-danger btn-sm delete-borrowing" data-id="<?php echo $borrowing['id']; ?>">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -734,9 +701,33 @@ try {
                                     <th>Date de réservation</th>
                                     <th>Date de traitement</th>
                                     <th>Statut</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php foreach ($reservations_by_status['Approuvée'] as $reservation): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($reservation['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($reservation['first_name'] . ' ' . $reservation['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($reservation['reservation_date'])); ?></td>
+                                    <td><?php echo $reservation['pickup_deadline'] ? date('d/m/Y', strtotime($reservation['pickup_deadline'])) : '-'; ?></td>
+                                    <td><span class="status status-available"><?php echo $reservation['status']; ?></span></td>
+                                    <td class="action-buttons">
+                                        <button class="btn btn-primary btn-sm convert-reservation" data-id="<?php echo $reservation['id']; ?>">
+                                            <i class="fas fa-exchange-alt"></i> Convertir
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php foreach ($reservations_by_status['Rejetée'] as $reservation): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($reservation['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($reservation['first_name'] . ' ' . $reservation['name']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($reservation['reservation_date'])); ?></td>
+                                    <td><?php echo $reservation['approved_at'] ? date('d/m/Y', strtotime($reservation['approved_at'])) : '-'; ?></td>
+                                    <td>Annulation administrateur</td>
+                                </tr>
+                                <?php endforeach; ?>
                                 <?php foreach ($reservations_by_status['Emprunté'] as $reservation): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($reservation['title']); ?></td>

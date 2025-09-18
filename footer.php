@@ -3,7 +3,7 @@
         <div class="row">
             <div class="col-md-4 mb-4">
                 <div class="footer-logo">
-                    <i class="fas fa-book-open me-2"></i>BNB
+                    <i class="fas fa-book-open me-2"></i>BiblioBénin
                 </div>
                 <p class="footer-description">
                     La Bibliothèque Nationale du Bénin préserve et promeut le patrimoine culturel et littéraire du pays.
@@ -19,10 +19,10 @@
             <div class="col-md-4 mb-4">
                 <h5 class="footer-heading">Liens Rapides</h5>
                 <ul class="footer-links">
-                    <li><a href="#"><i class="fas fa-angle-right me-2"></i>Accueil</a></li>
+                    <li><a href="index.php"><i class="fas fa-angle-right me-2"></i>Accueil</a></li>
                     <li><a href="catalogue.php"><i class="fas fa-angle-right me-2"></i>Catalogue</a></li>
-                    <li><a href="#"><i class="fas fa-angle-right me-2"></i>À propos</a></li>
-                    <li><a href="#"><i class="fas fa-angle-right me-2"></i>Contactez-nous</a></li>
+                    <li><a href="about.php"><i class="fas fa-angle-right me-2"></i>À propos</a></li>
+                    <li><a href="contact"><i class="fas fa-angle-right me-2"></i>Contactez-nous</a></li>
                     <li><a href="#"><i class="fas fa-angle-right me-2"></i>Politique de confidentialité</a></li>
                 </ul>
             </div>
@@ -30,16 +30,16 @@
             <div class="col-md-4 mb-4">
                 <h5 class="footer-heading">Coordonnées</h5>
                 <ul class="footer-links">
-                    <li><i class="fas fa-map-marker-alt me-2"></i> Avenue de la Bibliothèque, Cotonou</li>
-                    <li><i class="fas fa-phone me-2"></i> +229 XX XX XX XX</li>
-                    <li><i class="fas fa-envelope me-2"></i> contact@bnb.bj</li>
+                    <li><i class="fas fa-map-marker-alt me-2"></i> Avenue de la Bibliothèque, Porto-Novo</li>
+                    <li><i class="fas fa-phone me-2"></i> +229 0196149025</li>
+                    <li><i class="fas fa-envelope me-2"></i> contact@cosit-benin.com</li>
                     <li><i class="fas fa-clock me-2"></i> Lun-Ven: 8h-18h | Sam: 9h-13h</li>
                 </ul>
             </div>
         </div>
         
         <div class="copyright">
-            <p>&copy; 2023 Bibliothèque Nationale du Bénin. Tous droits réservés.</p>
+            <p>&copy; 2025 Bibliothèque Nationale du Bénin. Tous droits réservés.</p>
         </div>
     </div>
 </footer>

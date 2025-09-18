@@ -21,7 +21,8 @@ try {
                 case 'delete_book':
                     if (isset($input['book_id']) && isset($input['book_type'])) {
                         if ($input['book_type'] === 'physical') {
-                            $stmt = $pdo->prepare("UPDATE books SET status = 'DELETED' WHERE id = ?");
+                            //$stmt = $pdo->prepare("UPDATE books SET status = 'INDISPONIBLE' WHERE id = ?");
+                            $stmt = $pdo->prepare("DELETE FROM books WHERE id = ?");
                             $stmt->execute([$input['book_id']]);
                         }
                         echo json_encode(['success' => true, 'message' => 'Livre supprimé avec succès']);
@@ -32,7 +33,8 @@ try {
                     
                 case 'delete_user':
                     if (isset($input['user_id'])) {
-                        $stmt = $pdo->prepare("UPDATE users SET status = 'deleted' WHERE id = ?");
+                        //$stmt = $pdo->prepare("UPDATE users SET status = 'deleted' WHERE id = ?");
+                        $stmt = $pdo->prepare("DELETE FROM users  WHERE id = ?");
                         $stmt->execute([$input['user_id']]);
                         echo json_encode(['success' => true, 'message' => 'Utilisateur supprimé avec succès']);
                     } else {

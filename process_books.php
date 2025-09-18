@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once 'includes/config.php';
 require_once 'session_check.php';
 
@@ -37,9 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Gestion de l'upload de l'image de couverture
                 $cover_image = null;
                 if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
-                    $uploadDir = '../uploads/covers/';
+                    $uploadDir = 'uploads/covers/';
                     if (!file_exists($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
+                        if (!mkdir($uploadDir, 0777, true)) {
+                            echo json_encode(['success' => false, 'message' => 'Impossible de créer le dossier d\'upload']);
+                            exit();
+                        }
                     }
                     
                     $fileName = uniqid() . '_' . basename($_FILES['cover_image']['name']);
@@ -47,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $targetPath)) {
                         $cover_image = $targetPath;
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'upload de l\'image']);
+                        exit();
                     }
                 }
                 
@@ -80,9 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         exit();
                     }
                     
-                    $uploadDir = '../uploads/documents/';
+                    $uploadDir = 'uploads/documents/';
                     if (!file_exists($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
+                        if (!mkdir($uploadDir, 0777, true)) {
+                            echo json_encode(['success' => false, 'message' => 'Impossible de créer le dossier d\'upload']);
+                            exit();
+                        }
                     }
                     
                     $fileName = uniqid() . '_' . basename($_FILES['digital_file']['name']);
@@ -90,14 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if (move_uploaded_file($_FILES['digital_file']['tmp_name'], $targetPath)) {
                         $file_path = $targetPath;
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'upload du fichier']);
+                        exit();
                     }
                 }
                 
                 // Gestion de l'upload de l'image de couverture pour le document numérique
                 if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
-                    $uploadDir = '../uploads/covers/';
+                    $uploadDir = 'uploads/covers/';
                     if (!file_exists($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
+                        if (!mkdir($uploadDir, 0777, true)) {
+                            echo json_encode(['success' => false, 'message' => 'Impossible de créer le dossier d\'upload']);
+                            exit();
+                        }
                     }
                     
                     $fileName = uniqid() . '_' . basename($_FILES['cover_image']['name']);
@@ -105,6 +121,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $targetPath)) {
                         $cover_image = $targetPath;
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'upload de l\'image']);
+                        exit();
                     }
                 }
                 

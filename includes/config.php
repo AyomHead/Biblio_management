@@ -3,7 +3,7 @@
 $host = "localhost";
 $dbname = "biblio_base";
 $username = "root";
-$password = "Gilbert1000@";
+$password = "";
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password); // création de l’objet PDO

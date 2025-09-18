@@ -4,8 +4,8 @@ include_once("session_check.php");
 
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
-        <a class="navbar-brand" href="#">
-            <i class="fas fa-book-open me-2"></i>BNB
+        <a class="navbar-brand" href="index.php">
+            <i class="fas fa-book-open me-2"></i>BiblioBénin
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -23,7 +23,7 @@ include_once("session_check.php");
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="about.php">
                         <i class="fas fa-info-circle me-1"></i>À propos
                     </a>
                 </li>
