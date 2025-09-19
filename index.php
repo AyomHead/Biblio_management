@@ -60,7 +60,7 @@ try {
                     </div>
                     
                     <div class="hero-btns mt-4">
-                        <a href="catalogue.html" class="btn-custom btn-primary-custom">
+                        <a href="catalogue.php" class="btn-custom btn-primary-custom">
                             <i class="fas fa-book-open me-2"></i> Explorer le Catalogue
                         </a>
                     </div>
@@ -100,7 +100,11 @@ try {
                                         
 
                                         <?php if (!empty($book['category'])): ?>
-                                            <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                            <?php if ($book['category'] === "Jeunesse"): ?>
+                                                <span class="book-category-badge" style="background-color: rgba(255,255,0,0.5); color: white;" ><?php echo htmlspecialchars($book['category']); ?></span>
+                                            <?php else: ?>
+                                                <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                            <?php endif ?>
                                         <?php endif; ?>
                                         
                                         <span class="book-status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">
@@ -155,7 +159,11 @@ try {
                                                 <p class="book-author"><?php echo htmlspecialchars($book['author']); ?></p>
                                                 
                                                 <?php if (!empty($book['category'])): ?>
-                                                    <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                                    <?php if ($book['category'] === "Jeunesse"): ?>
+                                                    <span class="book-category-badge" style="background-color: rgba(255,255,0,0.5); color: white;" ><?php echo htmlspecialchars($book['category']); ?></span>
+                                                    <?php else: ?>
+                                                        <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                                    <?php endif ?>
                                                 <?php endif; ?>
                                                 
                                                 <span class="book-status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">

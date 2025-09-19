@@ -224,9 +224,13 @@ try {
                                     <p class="book-author"><?php echo htmlspecialchars($book['author']); ?></p>
                                     
 
-                                    <?php if (!empty($book['category'])): ?>
-                                        <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
-                                    <?php endif; ?>
+                                        <?php if (!empty($book['category'])): ?>
+                                            <?php if ($book['category'] === "Jeunesse"): ?>
+                                                <span class="book-category-badge" style="background-color: rgba(255,255,0,0.5); color: white;" ><?php echo htmlspecialchars($book['category']); ?></span>
+                                            <?php else: ?>
+                                                <span class="book-category-badge"><?php echo htmlspecialchars($book['category']); ?></span>
+                                            <?php endif ?>
+                                        <?php endif; ?>
                                     
                                     <span class="book-status status-<?php echo $book['status'] == 'DISPONIBLE' ? 'available' : 'borrowed'; ?>">
                                         <?php echo $book['status'] == 'DISPONIBLE' ? 'Disponible' : 'Indisponible'; ?>
